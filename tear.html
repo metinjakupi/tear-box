@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tear</title>
+    <style>
+        .box {
+            border: 2px dashed rgb(214, 214, 214);
+            padding: 6px 8px;
+            border-radius: 50px;
+            width: 400px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            user-select: none;
+        }
+
+        .button {
+            width: 32px;
+            height: 32px;
+            background: #bbf13a;
+            background-position: center center;
+            background-repeat: no-repeat;
+            border-radius: 50px;
+            cursor: grabbing;
+            z-index: 10;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .handler {
+            transform: translateX(0px) scale(0);
+            width: 0px;
+            height: 48px;
+            position: absolute;
+            left: 0px;
+            z-index: 11;
+            display: inline-block;
+            pointer-events: none;
+            border-radius: 0 30px 30px 0;
+            background: linear-gradient(
+                    270deg,
+                    #ececec 0%,
+                    #f9f9f9 59.29%,
+                    #ffffff 81.79%,
+                    #e2e2e2 97.86%
+            );
+            box-shadow: 0px 6px 80px rgba(0, 0, 0, 0.07),
+            0px 2.50666px 33.4221px rgba(0, 0, 0, 0.0503198),
+            0px 1.34018px 17.869px rgba(0, 0, 0, 0.0417275),
+            0px 0.751293px 10.0172px rgba(0, 0, 0, 0.035),
+            0px 0.399006px 5.32008px rgba(0, 0, 0, 0.0282725),
+            0px 0.166035px 2.21381px rgba(0, 0, 0, 0.0196802);
+            border-radius: 0px 30px 30px 0px;
+            border: 1px solid rgba(0, 0, 0, 0.0196802);
+        }
+
+
+    </style>
+</head>
+
+<body>
+<div class="box">
+    <div class="button"></div>
+    <div class="handler"></div>
+</div>
+<audio id="tearSound">
+    <source src="tear_rip.mp3" type="audio/mpeg">
+</audio>
+<script>
+    const box = document.querySelector('.box');
+    const button = document.querySelector('.button');
+    const handler = document.querySelector('.handler');
+    const tearSound = document.getElementById('tearSound');
+    let isDragging = false;
+    let startX = 0;
+    let currentX = 0;
+    let lastX = 0;
+    let lastTime = Date.now();
+
+    button.addEventListener('mousedown', (event) => {
+        isDragging = true;
+        startX = event.clientX - currentX;
+        lastTime = Date.now();
+
+        // Start playing the sound from 1 second in
+        tearSound.currentTime = 1;
+        tearSound.play();
+    });
+
+    document.addEventListener('mousemove', (event) => {
+        if (!isDragging) return;
+        let deltaX = event.clientX - lastX;
+        let deltaTime = Date.now() - lastTime;
+        let velocity = Math.abs(deltaX) / deltaTime;
+
+        currentX = event.clientX - startX;
+        if (currentX < 0) currentX = 0;
+        if (currentX > 400) currentX = 400;
+
+        transform(currentX)
+
+        // Adjust the playback rate based on velocity
+        // We'll map the velocity (which can vary) to a reasonable range for playbackRate
+        // This mapping might need adjustments based on testing
+        let playbackRate = mapVelocityToPlaybackRate(velocity);
+        tearSound.playbackRate = playbackRate;
+
+        // Fade out the sound if the user drags extremely slowly or stops
+        if (velocity < 10) {  // 10 px/s threshold, can be adjusted
+            tearSound.volume -= 0.05;  // decrease volume gradually
+        } else {
+            tearSound.volume = 1;  // reset volume if user drags faster
+        }
+
+        lastX = event.clientX;
+        lastTime = Date.now();
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (currentX < 150) {
+            currentX = 0;
+            transform(currentX)
+        }
+        // Fade out the sound
+        let fadeOutInterval = setInterval(() => {
+            if (tearSound.volume > 0.1) {
+                tearSound.volume -= 0.05;
+            } else {
+                tearSound.pause();
+                tearSound.volume = 1; // Reset volume for next time
+                clearInterval(fadeOutInterval);
+            }
+        }, 50);
+        isDragging = false;
+
+    });
+
+    function mapVelocityToPlaybackRate(velocity) {
+        const baseVelocity = 66.67;  // corresponds to playback rate of 1
+        let playbackRate = 1;  // default to normal speed
+
+        if (velocity > baseVelocity) {
+            playbackRate = velocity / baseVelocity;
+        }
+
+        // Clamp the playback rate to a minimum of 1 and a maximum of 2
+        return Math.min(Math.max(playbackRate, 1), 2);
+    }
+
+
+    function transform(currentX) {
+        button.style.transform = `translateX(${currentX}px)`;
+        handler.style.transform = `translateX(${currentX}px)`;
+        handler.style.width = `${currentX * 0.8}px`;
+
+        box.style.background = `linear-gradient(
+    90deg,
+    #e5e4e5 0%,
+    #e5e4e5 ${(currentX / 400) * 100}%,
+    #fff ${(currentX / 400) * 100}%,
+    #fff 100%
+  )`;
+    }
+
+</script>
+</body>
+</html>
