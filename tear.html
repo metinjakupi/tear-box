@@ -2,8 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>Tear</title>
     <style>
+        body {
+            display: grid;
+            place-items: center;
+            height: 100vh;
+        }
+
         .box {
             border: 2px dashed rgb(214, 214, 214);
             padding: 6px 8px;
@@ -66,107 +73,128 @@
 
 <body>
 <div class="box">
-    <div class="button"></div>
+    <div class="button">
+    </div>
     <div class="handler"></div>
 </div>
 <audio id="tearSound">
     <source src="tear_rip.mp3" type="audio/mpeg">
 </audio>
+<audio id="silentAudio" preload="auto" controls >
+    <source src="silent_clip.wav" type="audio/mpeg">
+</audio>
 <script>
-    const box = document.querySelector('.box');
-    const button = document.querySelector('.button');
-    const handler = document.querySelector('.handler');
-    const tearSound = document.getElementById('tearSound');
-    let isDragging = false;
-    let startX = 0;
-    let currentX = 0;
-    let lastX = 0;
-    let lastTime = Date.now();
+    // Or we can also use this event in this way
+    window.addEventListener("DOMContentLoaded", function () {
+        const box = document.querySelector('.box');
+        const button = document.querySelector('.button');
+        const handler = document.querySelector('.handler');
+        const tearSound = document.getElementById('tearSound');
 
-    button.addEventListener('mousedown', (event) => {
-        isDragging = true;
-        startX = event.clientX - currentX;
-        lastTime = Date.now();
+        var promise = document.getElementById('silentAudio').play();
 
-        // Start playing the sound from 1 second in
-        tearSound.currentTime = 1;
-        tearSound.play();
-    });
 
-    document.addEventListener('mousemove', (event) => {
-        if (!isDragging) return;
-        let deltaX = event.clientX - lastX;
-        let deltaTime = Date.now() - lastTime;
-        let velocity = Math.abs(deltaX) / deltaTime;
 
-        currentX = event.clientX - startX;
-        if (currentX < 0) currentX = 0;
-        if (currentX > 400) currentX = 400;
+        let isDragging = false;
+        let startX = 0;
+        let currentX = 0;
+        let lastX = 0;
+        let lastTime = Date.now();
 
-        transform(currentX)
+        // Add the event listeners
+        button.addEventListener('mousedown', startDrag);
+        button.addEventListener('touchstart', startDrag);
 
-        // Adjust the playback rate based on velocity
-        // We'll map the velocity (which can vary) to a reasonable range for playbackRate
-        // This mapping might need adjustments based on testing
-        let playbackRate = mapVelocityToPlaybackRate(velocity);
-        tearSound.playbackRate = playbackRate;
+        document.addEventListener('mousemove', duringDrag);
+        document.addEventListener('touchmove', duringDrag);
+        document.addEventListener('mouseup', () => {
+            if (currentX < 150) {
+                currentX = 0;
+                transform(currentX)
+            }
+            // Fade out the sound
+            let fadeOutInterval = setInterval(() => {
+                if (tearSound.volume > 0.1) {
+                    tearSound.volume -= 0.05;
+                } else {
+                    tearSound.pause();
+                    tearSound.volume = 1; // Reset volume for next time
+                    clearInterval(fadeOutInterval);
+                }
+            }, 50);
+            isDragging = false;
 
-        // Fade out the sound if the user drags extremely slowly or stops
-        if (velocity < 10) {  // 10 px/s threshold, can be adjusted
-            tearSound.volume -= 0.05;  // decrease volume gradually
-        } else {
-            tearSound.volume = 1;  // reset volume if user drags faster
+        });
+
+
+        // Function to handle the start of the drag/touch
+        function startDrag(event) {
+            isDragging = true;
+            let clientX = event.clientX || event.touches[0].clientX;
+            startX = clientX - currentX;
+            lastTime = Date.now();
+
+            // Start playing the sound from 1 second in
+            tearSound.currentTime = 1;
+            tearSound.play();
         }
 
-        lastX = event.clientX;
-        lastTime = Date.now();
-    });
+        // Function to handle the drag/touch movement
+        function duringDrag(event) {
+            if (!isDragging) return;
 
-    document.addEventListener('mouseup', () => {
-        if (currentX < 150) {
-            currentX = 0;
-            transform(currentX)
-        }
-        // Fade out the sound
-        let fadeOutInterval = setInterval(() => {
-            if (tearSound.volume > 0.1) {
+            let clientX = event.clientX || event.touches[0].clientX;
+            let deltaX = clientX - lastX;
+            let deltaTime = Date.now() - lastTime;
+            let velocity = Math.abs(deltaX) / deltaTime;
+
+            currentX = clientX - startX;
+            if (currentX < 0) currentX = 0;
+            if (currentX > 400) currentX = 400;
+
+            transform(currentX);
+
+            let playbackRate = mapVelocityToPlaybackRate(velocity);
+            tearSound.playbackRate = playbackRate;
+
+            if (velocity < 10) {
                 tearSound.volume -= 0.05;
             } else {
-                tearSound.pause();
-                tearSound.volume = 1; // Reset volume for next time
-                clearInterval(fadeOutInterval);
+                tearSound.volume = 1;
             }
-        }, 50);
-        isDragging = false;
 
-    });
-
-    function mapVelocityToPlaybackRate(velocity) {
-        const baseVelocity = 66.67;  // corresponds to playback rate of 1
-        let playbackRate = 1;  // default to normal speed
-
-        if (velocity > baseVelocity) {
-            playbackRate = velocity / baseVelocity;
+            lastX = clientX;
+            lastTime = Date.now();
         }
 
-        // Clamp the playback rate to a minimum of 1 and a maximum of 2
-        return Math.min(Math.max(playbackRate, 1), 2);
-    }
+        function mapVelocityToPlaybackRate(velocity) {
+            const baseVelocity = 66.67;  // corresponds to playback rate of 1
+            let playbackRate = 1;  // default to normal speed
+
+            if (velocity > baseVelocity) {
+                playbackRate = velocity / baseVelocity;
+            }
+
+            // Clamp the playback rate to a minimum of 1 and a maximum of 2
+            return Math.min(Math.max(playbackRate, 1), 2);
+        }
 
 
-    function transform(currentX) {
-        button.style.transform = `translateX(${currentX}px)`;
-        handler.style.transform = `translateX(${currentX}px)`;
-        handler.style.width = `${currentX * 0.8}px`;
+        function transform(currentX) {
+            button.style.transform = `translateX(${currentX}px)`;
+            handler.style.transform = `translateX(${currentX}px)`;
+            handler.style.width = `${currentX * 0.8}px`;
 
-        box.style.background = `linear-gradient(
+            box.style.background = `linear-gradient(
     90deg,
     #e5e4e5 0%,
     #e5e4e5 ${(currentX / 400) * 100}%,
     #fff ${(currentX / 400) * 100}%,
     #fff 100%
   )`;
-    }
+        }
+    });
+
 
 </script>
 </body>
